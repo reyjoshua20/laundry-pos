@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Laundry POS</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="theme-color" content="#1f5fbf">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Laundry POS">
+<style>
+:root{--bg:#f4f4f2;--surface:#ffffff;--text:#1d1d1d;--muted:#666666;--line:#cfcfca;--accent:#1f5fbf;--accent-text:#ffffff;--bad:#b3261e;--ok:#1b7a3a;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171717;--surface:#222222;--text:#ececec;--muted:#a0a0a0;--line:#3d3d3d;--accent:#6ea2f0;--accent-text:#0d0d0d;--bad:#ff8a80;--ok:#6fd08c;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#171717;--surface:#222222;--text:#ececec;--muted:#a0a0a0;--line:#3d3d3d;--accent:#6ea2f0;--accent-text:#0d0d0d;--bad:#ff8a80;--ok:#6fd08c;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--line)}
+header h1{font-size:17px;margin:0}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav button{background:none;border:1px solid var(--line);color:var(--text);padding:7px 12px;border-radius:4px;cursor:pointer;font:inherit}
+nav button.on{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+main{max-width:1000px;margin:0 auto;padding:14px}
+section{display:none}
+section.on{display:block}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:720px){.grid{grid-template-columns:1fr}}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:12px;margin-bottom:14px}
+.box h2{font-size:15px;margin:0 0 10px}
+label{display:block;font-size:13px;color:var(--muted);margin:8px 0 3px}
+input,select,button.btn{font:inherit;color:var(--text);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:7px 8px;width:100%}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.row{display:flex;gap:8px;align-items:flex-end}
+.row>*{flex:1}
+.row>.s{flex:0 0 auto;width:auto}
+button.btn{cursor:pointer;width:auto;background:var(--accent);color:var(--accent-text);border-color:var(--accent);font-weight:600}
+button.btn.alt{background:var(--surface);color:var(--text);border-color:var(--line);font-weight:400}
+button.btn.sm{padding:4px 8px;font-size:13px}
+button.btn.full{width:100%;padding:11px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:13px;color:var(--muted);font-weight:600}
+td.n,th.n{text-align:right}
+td input{padding:4px 6px}
+.totals div{display:flex;justify-content:space-between;padding:3px 0}
+.totals .big{font-size:20px;font-weight:700;border-top:1px solid var(--line);margin-top:4px;padding-top:8px}
+.bad{color:var(--bad)}.ok{color:var(--ok)}.muted{color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:10px}
+.card b{display:block;font-size:20px}
+.scroll{overflow-x:auto}
+#rcptWrap{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:20;overflow:auto;padding:16px}
+#rcptWrap.on{display:block}
+#rcpt{background:#fff;color:#000;max-width:320px;margin:0 auto;padding:14px;font:13px/1.35 "Courier New",monospace}
+#rcpt .l{display:flex;justify-content:space-between;gap:8px}
+#rcpt hr{border:0;border-top:1px dashed #000;margin:6px 0}
+.rbtns{max-width:320px;margin:10px auto 0;display:flex;gap:8px}
+.rbtns button{flex:1}
+@media print{body>*:not(#rcptWrap){display:none!important}#rcptWrap{position:static;background:none;padding:0;display:block!important}.rbtns{display:none}#rcpt{max-width:none;margin:0}}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="shopTitle">Laundry POS</h1>
+  <nav id="nav">
+    <button data-t="new" class="on">New order</button>
+    <button data-t="orders">Orders</button>
+    <button data-t="prices">Prices</button>
+    <button data-t="sales">Sales</button>
+  </nav>
+</header>
+
+<main>
+<!-- NEW ORDER -->
+<section id="new" class="on">
+  <div class="grid">
+    <div>
+      <div class="box">
+        <h2>Customer</h2>
+        <label for="cName">Name</label><input id="cName" autocomplete="off">
+        <label for="cPhone">Phone (optional)</label><input id="cPhone" inputmode="tel" autocomplete="off">
+      </div>
+      <div class="box">
+        <h2>Add service</h2>
+        <div class="row">
+          <div><label for="svc">Service</label><select id="svc"></select></div>
+          <div style="flex:0 0 90px"><label for="qty" id="qtyLbl">Qty</label><input id="qty" type="number" min="0" step="0.1" value="1"></div>
+          <button class="btn s" id="addBtn" type="button">Add</button>
+        </div>
+      </div>
+      <div class="box">
+        <h2>Adjustments</h2>
+        <div class="row">
+          <div><label for="disc">Discount</label><input id="disc" type="number" min="0" step="any" value="0"></div>
+          <div style="flex:0 0 90px"><label for="discType">Type</label><select id="discType"><option value="amt">Amount</option><option value="pct">Percent %</option></select></div>
+        </div>
+        <label for="fee">Delivery / rush fee</label><input id="fee" type="number" min="0" step="any" value="0">
+      </div>
+    </div>
+
+    <div>
+      <div class="box">
+        <h2>Items</h2>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Service</th><th class="n">Qty</th><th class="n">Price</th><th class="n">Amount</th><th></th></tr></thead>
+            <tbody id="cart"></tbody>
+          </table>
+        </div>
+        <div class="totals" style="margin-top:10px">
+          <div><span>Subtotal</span><span id="tSub">0.00</span></div>
+          <div><span>Discount</span><span id="tDisc">0.00</span></div>
+          <div><span>Fee</span><span id="tFee">0.00</span></div>
+          <div class="big"><span>Total</span><span id="tTotal">0.00</span></div>
+        </div>
+      </div>
+      <div class="box">
+        <h2>Payment</h2>
+        <label for="recv">Amount received</label><input id="recv" type="number" min="0" step="any" value="">
+        <div class="totals" style="margin-top:8px"><div><span id="payLbl">Change</span><span id="payVal">0.00</span></div></div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn full" id="saveBtn" type="button">Save order and print receipt</button>
+          <button class="btn alt s" id="clearBtn" type="button">Clear</button>
+        </div>
+        <p class="muted" id="msg" style="margin:8px 0 0"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ORDERS -->
+<section id="orders">
+  <div class="box">
+    <div class="row">
+      <div><label for="search">Search (name, phone or order no.)</label><input id="search"></div>
+      <div style="flex:0 0 160px"><label for="stFilter">Status</label>
+        <select id="stFilter"><option value="">All</option><option>Received</option><option>Washing</option><option>Ready</option><option>Claimed</option></select></div>
+    </div>
+  </div>
+  <div class="box scroll">
+    <table>
+      <thead><tr><th>No.</th><th>Customer</th><th class="n">Total</th><th>Payment</th><th>Status</th><th></th></tr></thead>
+      <tbody id="orderRows"></tbody>
+    </table>
+    <p class="muted" id="noOrders" style="display:none">No orders yet.</p>
+  </div>
+</section>
+
+<!-- PRICES -->
+<section id="prices">
+  <div class="box">
+    <h2>Shop settings</h2>
+    <div class="row">
+      <div><label for="shopName">Shop name</label><input id="shopName"></div>
+      <div style="flex:0 0 100px"><label for="cur">Currency</label><input id="cur" maxlength="4"></div>
+    </div>
+  </div>
+  <div class="box scroll">
+    <h2>Price list</h2>
+    <table>
+      <thead><tr><th>Service</th><th>Per</th><th class="n">Price</th><th></th></tr></thead>
+      <tbody id="priceRows"></tbody>
+    </table>
+    <h2 style="margin-top:14px">Add service</h2>
+    <div class="row">
+      <div><label for="npName">Name</label><input id="npName"></div>
+      <div style="flex:0 0 90px"><label for="npUnit">Per</label><select id="npUnit"><option value="kg">kg</option><option value="pc">pc</option><option value="load">load</option></select></div>
+      <div style="flex:0 0 110px"><label for="npPrice">Price</label><input id="npPrice" type="number" min="0" step="any"></div>
+      <button class="btn s" id="npAdd" type="button">Add</button>
+    </div>
+  </div>
+</section>
+
+<!-- SALES -->
+<section id="sales">
+  <div class="box" style="max-width:260px">
+    <label for="sDate" style="margin-top:0">Date</label><input id="sDate" type="date">
+  </div>
+  <div class="cards" id="sCards"></div>
+  <div class="box scroll">
+    <h2>Orders on this date</h2>
+    <table>
+      <thead><tr><th>No.</th><th>Customer</th><th class="n">Total</th><th class="n">Collected</th></tr></thead>
+      <tbody id="sRows"></tbody>
+    </table>
+  </div>
+  <p class="muted">Collected is the money received so far for each order, counted on the date the order was made.</p>
+</section>
+</main>
+
+<!-- RECEIPT -->
+<div id="rcptWrap">
+  <div id="rcpt"></div>
+  <div class="rbtns">
+    <button class="btn" id="rPrint" type="button">Print</button>
+    <button class="btn alt" id="rClose" type="button">Close</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var KEY="laundryPOS.v1";
+  var defaults={
+    shop:"My Laundry Shop",cur:"₱",counter:1,
+    prices:[
+      {id:1,name:"Wash, dry and fold",unit:"kg",price:60},
+      {id:2,name:"Wash only",unit:"kg",price:35},
+      {id:3,name:"Dry only",unit:"kg",price:30},
+      {id:4,name:"Ironing",unit:"kg",price:40},
+      {id:5,name:"Comforter / blanket",unit:"pc",price:150},
+      {id:6,name:"Dry clean",unit:"pc",price:120},
+      {id:7,name:"Detergent and fabric conditioner",unit:"load",price:20}
+    ],
+    nextPid:8,orders:[]
+  };
+  var S;
+  try{var raw=localStorage.getItem(KEY);S=raw?JSON.parse(raw):null}catch(e){S=null}
+  if(!S||!S.prices)S=JSON.parse(JSON.stringify(defaults));
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+  var cart=[];
+  var $=function(id){return document.getElementById(id)};
+  function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+  function num(v){var n=parseFloat(v);return isFinite(n)&&n>0?n:0}
+  function r2(n){return Math.round(n*100)/100}
+  function money(n){return S.cur+r2(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
+  function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+  function pad(n){return String(n).padStart(4,"0")}
+
+  /* tabs */
+  var navBtns=document.querySelectorAll("#nav button");
+  function showTab(t){
+    navBtns.forEach(function(b){b.classList.toggle("on",b.dataset.t===t)});
+    document.querySelectorAll("main section").forEach(function(s){s.classList.toggle("on",s.id===t)});
+    if(t==="orders")renderOrders();
+    if(t==="prices")renderPrices();
+    if(t==="sales")renderSales();
+  }
+  navBtns.forEach(function(b){b.addEventListener("click",function(){showTab(b.dataset.t)})});
+
+  /* service select */
+  function fillSvc(){
+    var cur=$("svc").value;
+    $("svc").innerHTML=S.prices.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+" ("+esc(S.cur)+p.price+"/"+p.unit+")</option>"}).join("");
+    if(cur)$("svc").value=cur;
+    syncQty();
+  }
+  function curSvc(){return S.prices.filter(function(p){return String(p.id)===$("svc").value})[0]}
+  function syncQty(){
+    var p=curSvc();if(!p)return;
+    $("qtyLbl").textContent="Qty ("+p.unit+")";
+    $("qty").step=p.unit==="kg"?"0.1":"1";
+  }
+  $("svc").addEventListener("change",syncQty);
+
+  /* cart */
+  function calc(){
+    var sub=0;cart.forEach(function(l){sub+=l.price*l.qty});
+    sub=r2(sub);
+    var dv=num($("disc").value);
+    var disc=$("discType").value==="pct"?sub*Math.min(dv,100)/100:dv;
+    disc=r2(Math.min(disc,sub));
+    var fee=r2(num($("fee").value));
+    return{sub:sub,disc:disc,fee:fee,total:r2(sub-disc+fee)};
+  }
+  function renderCart(){
+    $("cart").innerHTML=cart.length?cart.map(function(l,i){
+      return "<tr><td>"+esc(l.name)+"</td>"+
+        '<td class="n" style="width:80px"><input type="number" min="0" step="'+(l.unit==="kg"?"0.1":"1")+'" value="'+l.qty+'" data-i="'+i+'" class="cq" aria-label="Quantity"></td>'+
+        '<td class="n">'+money(l.price)+"/"+l.unit+"</td>"+
+        '<td class="n">'+money(l.price*l.qty)+"</td>"+
+        '<td><button class="btn alt sm" data-rm="'+i+'" type="button">Remove</button></td></tr>';
+    }).join(""):'<tr><td colspan="5" class="muted">Add a service to start an order.</td></tr>';
+    totals();
+  }
+  function totals(){
+    var c=calc();
+    $("tSub").textContent=money(c.sub);
+    $("tDisc").textContent=c.disc?"-"+money(c.disc):money(0);
+    $("tFee").textContent=money(c.fee);
+    $("tTotal").textContent=money(c.total);
+    var rv=$("recv").value===""?null:num($("recv").value);
+    var lbl=$("payLbl"),val=$("payVal");
+    if(rv===null){lbl.textContent="Balance due";val.textContent=money(c.total);val.className=c.total>0?"bad":"";}
+    else if(rv>=c.total){lbl.textContent="Change";val.textContent=money(rv-c.total);val.className="ok";}
+    else{lbl.textContent="Balance due";val.textContent=money(c.total-rv);val.className="bad";}
+  }
+  $("addBtn").addEventListener("click",function(){
+    var p=curSvc(),q=num($("qty").value);
+    if(!p){return}
+    if(!q){$("msg").textContent="Enter a quantity greater than 0.";return}
+    $("msg").textContent="";
+    var ex=cart.filter(function(l){return l.id===p.id})[0];
+    if(ex)ex.qty=r2(ex.qty+q);else cart.push({id:p.id,name:p.name,unit:p.unit,price:p.price,qty:q});
+    renderCart();
+  });
+  $("cart").addEventListener("input",function(e){
+    if(e.target.classList.contains("cq")){
+      var l=cart[+e.target.dataset.i];l.qty=num(e.target.value);
+      e.target.closest("tr").children[3].textContent=money(l.price*l.qty);
+      totals();
+    }
+  });
+  $("cart").addEventListener("click",function(e){
+    var i=e.target.dataset.rm;
+    if(i!==undefined){cart.splice(+i,1);renderCart()}
+  });
+  ["disc","discType","fee","recv"].forEach(function(id){$(id).addEventListener("input",totals)});
+
+  function clearOrder(){
+    cart=[];$("cName").value="";$("cPhone").value="";$("disc").value="0";$("fee").value="0";$("recv").value="";$("discType").value="amt";
+    renderCart();
+  }
+  $("clearBtn").addEventListener("click",function(){clearOrder();$("msg").textContent=""});
+
+  /* save order */
+  $("saveBtn").addEventListener("click",function(){
+    var items=cart.filter(function(l){return l.qty>0});
+    if(!items.length){$("msg").textContent="Add at least one service.";return}
+    var c=calc();
+    var rv=$("recv").value===""?0:num($("recv").value);
+    var o={
+      no:S.counter++,date:today(),time:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}),
+      name:$("cName").value.trim()||"Walk-in",phone:$("cPhone").value.trim(),
+      lines:items.map(function(l){return{name:l.name,unit:l.unit,price:l.price,qty:l.qty}}),
+      sub:c.sub,disc:c.disc,fee:c.fee,total:c.total,
+      paid:r2(Math.min(rv,c.total)),given:rv,status:"Received"
+    };
+    S.orders.unshift(o);save();
+    showReceipt(o);
+    clearOrder();$("msg").textContent="Order #"+pad(o.no)+" saved.";
+  });
+
+  /* receipt */
+  function showReceipt(o){
+    var h='<div style="text-align:center"><b>'+esc(S.shop)+"</b><br>Order #"+pad(o.no)+"<br>"+esc(o.date)+" "+esc(o.time||"")+"</div><hr>";
+    h+="Customer: "+esc(o.name)+(o.phone?"<br>Phone: "+esc(o.phone):"")+"<hr>";
+    o.lines.forEach(function(l){
+      h+="<div>"+esc(l.name)+'</div><div class="l"><span>&nbsp;&nbsp;'+l.qty+" "+l.unit+" x "+money(l.price)+"</span><span>"+money(l.price*l.qty)+"</span></div>";
+    });
+    h+="<hr>";
+    h+='<div class="l"><span>Subtotal</span><span>'+money(o.sub)+"</span></div>";
+    if(o.disc)h+='<div class="l"><span>Discount</span><span>-'+money(o.disc)+"</span></div>";
+    if(o.fee)h+='<div class="l"><span>Fee</span><span>'+money(o.fee)+"</span></div>";
+    h+='<div class="l"><b>TOTAL</b><b>'+money(o.total)+"</b></div><hr>";
+    h+='<div class="l"><span>Paid</span><span>'+money(o.paid)+"</span></div>";
+    var bal=r2(o.total-o.paid);
+    if(bal>0)h+='<div class="l"><b>Balance due</b><b>'+money(bal)+"</b></div>";
+    else if(o.given&&o.given>o.total)h+='<div class="l"><span>Change</span><span>'+money(o.given-o.total)+"</span></div>";
+    h+='<hr><div style="text-align:center">Please bring this receipt when claiming.<br>Thank you!</div>';
+    $("rcpt").innerHTML=h;
+    $("rcptWrap").classList.add("on");
+  }
+  $("rPrint").addEventListener("click",function(){window.print()});
+  $("rClose").addEventListener("click",function(){$("rcptWrap").classList.remove("on")});
+
+  /* orders list */
+  var STATUSES=["Received","Washing","Ready","Claimed"];
+  function payInfo(o){
+    var bal=r2(o.total-o.paid);
+    if(bal<=0)return{t:"Paid",c:"ok",bal:0};
+    if(o.paid>0)return{t:"Partial, "+money(bal)+" due",c:"bad",bal:bal};
+    return{t:"Unpaid, "+money(bal)+" due",c:"bad",bal:bal};
+  }
+  function renderOrders(){
+    var q=$("search").value.trim().toLowerCase(),f=$("stFilter").value;
+    var list=S.orders.filter(function(o){
+      if(f&&o.status!==f)return false;
+      if(!q)return true;
+      return o.name.toLowerCase().indexOf(q)>-1||(o.phone||"").toLowerCase().indexOf(q)>-1||pad(o.no).indexOf(q.replace("#",""))>-1;
+    });
+    $("noOrders").style.display=list.length?"none":"block";
+    $("orderRows").innerHTML=list.map(function(o){
+      var p=payInfo(o);
+      var pay='<span class="'+p.c+'">'+esc(p.t)+"</span>";
+      if(p.bal>0)pay+='<div class="row" style="margin-top:4px;gap:4px"><input type="number" min="0" step="any" placeholder="Amount" data-pay="'+o.no+'" value="'+p.bal+'" style="padding:3px 6px"><button class="btn sm s" data-collect="'+o.no+'" type="button">Collect</button></div>';
+      var sel='<select data-st="'+o.no+'" aria-label="Status">'+STATUSES.map(function(s){return"<option"+(s===o.status?" selected":"")+">"+s+"</option>"}).join("")+"</select>";
+      return"<tr><td>#"+pad(o.no)+'<div class="muted" style="font-size:12px">'+esc(o.date)+"</div></td>"+
+        "<td>"+esc(o.name)+(o.phone?'<div class="muted" style="font-size:12px">'+esc(o.phone)+"</div>":"")+"</td>"+
+        '<td class="n">'+money(o.total)+"</td><td>"+pay+"</td><td>"+sel+"</td>"+
+        '<td style="white-space:nowrap"><button class="btn alt sm" data-rc="'+o.no+'" type="button">Receipt</button> <button class="btn alt sm" data-del="'+o.no+'" type="button">Delete</button></td></tr>';
+    }).join("");
+  }
+  function findOrder(no){return S.orders.filter(function(o){return o.no===+no})[0]}
+  $("search").addEventListener("input",renderOrders);
+  $("stFilter").addEventListener("change",renderOrders);
+  $("orderRows").addEventListener("change",function(e){
+    if(e.target.dataset.st){var o=findOrder(e.target.dataset.st);o.status=e.target.value;save()}
+  });
+  $("orderRows").addEventListener("click",function(e){
+    var b=e.target,d=b.dataset;
+    if(d.rc){showReceipt(findOrder(d.rc))}
+    else if(d.collect){
+      var o=findOrder(d.collect);
+      var inp=document.querySelector('input[data-pay="'+d.collect+'"]');
+      var amt=num(inp.value);if(!amt)return;
+      o.paid=r2(Math.min(o.total,o.paid+amt));save();renderOrders();
+    }
+    else if(d.del){
+      if(b.dataset.armed){S.orders=S.orders.filter(function(o){return o.no!==+d.del});save();renderOrders()}
+      else{b.dataset.armed="1";b.textContent="Sure?";setTimeout(function(){if(b.isConnected){delete b.dataset.armed;b.textContent="Delete"}},3000)}
+    }
+  });
+
+  /* prices */
+  function renderPrices(){
+    $("shopName").value=S.shop;$("cur").value=S.cur;
+    $("priceRows").innerHTML=S.prices.map(function(p){
+      return'<tr><td><input value="'+esc(p.name)+'" data-pn="'+p.id+'" aria-label="Service name"></td>'+
+        '<td style="width:90px"><select data-pu="'+p.id+'" aria-label="Unit">'+["kg","pc","load"].map(function(u){return"<option"+(u===p.unit?" selected":"")+">"+u+"</option>"}).join("")+"</select></td>"+
+        '<td class="n" style="width:110px"><input type="number" min="0" step="any" value="'+p.price+'" data-pp="'+p.id+'" aria-label="Price"></td>'+
+        '<td style="width:80px"><button class="btn alt sm" data-pr="'+p.id+'" type="button">Remove</button></td></tr>';
+    }).join("");
+  }
+  function findP(id){return S.prices.filter(function(p){return p.id===+id})[0]}
+  $("shopName").addEventListener("input",function(){S.shop=this.value;$("shopTitle").textContent=S.shop||"Laundry POS";save()});
+  $("cur").addEventListener("input",function(){S.cur=this.value;save();fillSvc();renderCart()});
+  $("priceRows").addEventListener("input",function(e){
+    var d=e.target.dataset,p;
+    if(d.pn){p=findP(d.pn);p.name=e.target.value}
+    else if(d.pp){p=findP(d.pp);p.price=num(e.target.value)}
+    else return;
+    save();fillSvc();
+  });
+  $("priceRows").addEventListener("change",function(e){
+    if(e.target.dataset.pu){findP(e.target.dataset.pu).unit=e.target.value;save();fillSvc()}
+  });
+  $("priceRows").addEventListener("click",function(e){
+    var id=e.target.dataset.pr;
+    if(id){S.prices=S.prices.filter(function(p){return p.id!==+id});save();renderPrices();fillSvc()}
+  });
+  $("npAdd").addEventListener("click",function(){
+    var n=$("npName").value.trim();if(!n)return;
+    S.prices.push({id:S.nextPid++,name:n,unit:$("npUnit").value,price:num($("npPrice").value)});
+    $("npName").value="";$("npPrice").value="";save();renderPrices();fillSvc();
+  });
+
+  /* sales */
+  function renderSales(){
+    if(!$("sDate").value)$("sDate").value=today();
+    var d=$("sDate").value;
+    var list=S.orders.filter(function(o){return o.date===d});
+    var tot=0,col=0;list.forEach(function(o){tot+=o.total;col+=o.paid});
+    $("sCards").innerHTML=
+      '<div class="card">Orders<b>'+list.length+"</b></div>"+
+      '<div class="card">Total sales<b>'+money(tot)+"</b></div>"+
+      '<div class="card">Collected<b>'+money(col)+"</b></div>"+
+      '<div class="card">Unpaid<b class="'+(tot-col>0?"bad":"")+'">'+money(tot-col)+"</b></div>";
+    $("sRows").innerHTML=list.length?list.map(function(o){
+      return"<tr><td>#"+pad(o.no)+"</td><td>"+esc(o.name)+'</td><td class="n">'+money(o.total)+'</td><td class="n">'+money(o.paid)+"</td></tr>";
+    }).join(""):'<tr><td colspan="4" class="muted">No orders on this date.</td></tr>';
+  }
+  $("sDate").addEventListener("input",renderSales);
+
+  /* init */
+  $("shopTitle").textContent=S.shop||"Laundry POS";
+  fillSvc();renderCart();
+  if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol)){
+    window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});
+  }
+})();
+</script>
+</body>
+</html>

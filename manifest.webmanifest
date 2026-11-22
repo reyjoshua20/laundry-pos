@@ -1,0 +1,15 @@
+{
+  "name": "Laundry POS",
+  "short_name": "Laundry POS",
+  "description": "Simple point of sale for a laundry shop",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f4f4f2",
+  "theme_color": "#1f5fbf",
+  "icons": [
+    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
+    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable"}
+  ]
+}
