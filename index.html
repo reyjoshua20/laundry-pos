@@ -71,7 +71,9 @@ td input{padding:4px 6px}
     <button data-t="prices">Prices</button>
     <button data-t="sales">Sales</button>
   </nav>
+  <div id="acct" style="display:none;align-items:center;gap:8px"><span id="who" class="muted" style="font-size:13px"></span><button class="btn alt sm" id="outBtn" type="button">Sign out</button></div>
 </header>
+<div id="conn" class="muted" style="padding:6px 14px;font-size:13px;border-bottom:1px solid var(--line)">Connecting…</div>
 
 <main>
 <!-- NEW ORDER -->
@@ -151,6 +153,7 @@ td input{padding:4px 6px}
 
 <!-- PRICES -->
 <section id="prices">
+  <p class="muted" id="pricesNote" style="display:none">Only editors can change prices and shop settings.</p>
   <div class="box">
     <h2>Shop settings</h2>
     <div class="row">
@@ -191,6 +194,18 @@ td input{padding:4px 6px}
 </section>
 </main>
 
+<div id="login" style="display:block;position:fixed;inset:0;background:var(--bg);z-index:40;overflow:auto;padding:16px">
+  <div class="box" style="max-width:340px;margin:8vh auto 0">
+    <h2>Laundry POS sign in</h2>
+    <form id="lForm">
+      <label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="username" required>
+      <label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password" required>
+      <div style="margin-top:12px"><button class="btn full" id="lBtn" type="submit">Sign in</button></div>
+    </form>
+    <p id="lMsg" class="bad"></p>
+  </div>
+</div>
+<div id="toast" role="status" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--text);color:var(--bg);padding:9px 14px;border-radius:4px;z-index:30;max-width:90%"></div>
 <!-- RECEIPT -->
 <div id="rcptWrap">
   <div id="rcpt"></div>
@@ -200,63 +215,69 @@ td input{padding:4px 6px}
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
 <script>
 (function(){
-  var KEY="laundryPOS.v1";
-  var defaults={
-    shop:"My Laundry Shop",cur:"₱",counter:1,
-    prices:[
-      {id:1,name:"Wash, dry and fold",unit:"kg",price:60},
-      {id:2,name:"Wash only",unit:"kg",price:35},
-      {id:3,name:"Dry only",unit:"kg",price:30},
-      {id:4,name:"Ironing",unit:"kg",price:40},
-      {id:5,name:"Comforter / blanket",unit:"pc",price:150},
-      {id:6,name:"Dry clean",unit:"pc",price:120},
-      {id:7,name:"Detergent and fabric conditioner",unit:"load",price:20}
-    ],
-    nextPid:8,orders:[]
-  };
-  var S;
-  try{var raw=localStorage.getItem(KEY);S=raw?JSON.parse(raw):null}catch(e){S=null}
-  if(!S||!S.prices)S=JSON.parse(JSON.stringify(defaults));
-  function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
-
-  var cart=[];
+  var CFG=window.POS_CONFIG||{};
+  var DEF={shop:"My Laundry Shop",cur:"₱",nextPid:8,prices:[
+    {id:1,name:"Wash, dry and fold",unit:"kg",price:60},{id:2,name:"Wash only",unit:"kg",price:35},
+    {id:3,name:"Dry only",unit:"kg",price:30},{id:4,name:"Ironing",unit:"kg",price:40},
+    {id:5,name:"Comforter / blanket",unit:"pc",price:150},{id:6,name:"Dry clean",unit:"pc",price:120},
+    {id:7,name:"Detergent and fabric conditioner",unit:"load",price:20}]};
+  function clone(o){return JSON.parse(JSON.stringify(o))}
+  var cfg=clone(DEF),orders=[],salesList=[],cart=[],tab="new";
+  var sb=null,me=null,chan=null,CAN={write:false,admin:false},tO=null,tC=null,poll=null;
   var $=function(id){return document.getElementById(id)};
   function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
   function num(v){var n=parseFloat(v);return isFinite(n)&&n>0?n:0}
   function r2(n){return Math.round(n*100)/100}
-  function money(n){return S.cur+r2(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
+  function money(n){return cfg.cur+r2(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}
   function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
   function pad(n){return String(n).padStart(4,"0")}
+  function toast(m){var t=$("toast");t.textContent=m;t.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(function(){t.style.display="none"},4500)}
+  function setConn(m,bad){$("conn").textContent=m;$("conn").className=bad?"bad":"muted"}
+  function errMsg(e){
+    var m=(e&&e.message)||"";
+    if(e&&(e.code==="42501"||/row-level security|permission/i.test(m)))return "You don’t have permission to do that.";
+    if(/fetch|network/i.test(m))return "No connection. Check the internet and try again.";
+    return "Couldn’t save: "+(m||"unknown error");
+  }
+  function norm(r){return{no:Number(r.no),date:r.order_date,time:r.order_time||"",name:r.name,phone:r.phone||"",lines:r.lines||[],sub:+r.sub,disc:+r.disc,fee:+r.fee,total:+r.total,paid:+r.paid,given:+r.given,status:r.status}}
 
   /* tabs */
   var navBtns=document.querySelectorAll("#nav button");
   function showTab(t){
+    tab=t;
     navBtns.forEach(function(b){b.classList.toggle("on",b.dataset.t===t)});
     document.querySelectorAll("main section").forEach(function(s){s.classList.toggle("on",s.id===t)});
     if(t==="orders")renderOrders();
     if(t==="prices")renderPrices();
-    if(t==="sales")renderSales();
+    if(t==="sales")loadSales();
   }
   navBtns.forEach(function(b){b.addEventListener("click",function(){showTab(b.dataset.t)})});
 
-  /* service select */
+  function applyPerms(){
+    $("saveBtn").disabled=!(me&&CAN.write);
+    var lock=!(me&&CAN.admin);
+    document.querySelectorAll("#prices input,#prices select,#prices button").forEach(function(el){el.disabled=lock});
+    $("pricesNote").style.display=(me&&!CAN.admin)?"block":"none";
+  }
+
+  /* service select + cart */
   function fillSvc(){
     var cur=$("svc").value;
-    $("svc").innerHTML=S.prices.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+" ("+esc(S.cur)+p.price+"/"+p.unit+")</option>"}).join("");
+    $("svc").innerHTML=cfg.prices.map(function(p){return'<option value="'+p.id+'">'+esc(p.name)+" ("+esc(cfg.cur)+p.price+"/"+p.unit+")</option>"}).join("");
     if(cur)$("svc").value=cur;
     syncQty();
   }
-  function curSvc(){return S.prices.filter(function(p){return String(p.id)===$("svc").value})[0]}
+  function curSvc(){return cfg.prices.filter(function(p){return String(p.id)===$("svc").value})[0]}
   function syncQty(){
     var p=curSvc();if(!p)return;
     $("qtyLbl").textContent="Qty ("+p.unit+")";
     $("qty").step=p.unit==="kg"?"0.1":"1";
   }
   $("svc").addEventListener("change",syncQty);
-
-  /* cart */
   function calc(){
     var sub=0;cart.forEach(function(l){sub+=l.price*l.qty});
     sub=r2(sub);
@@ -268,7 +289,7 @@ td input{padding:4px 6px}
   }
   function renderCart(){
     $("cart").innerHTML=cart.length?cart.map(function(l,i){
-      return "<tr><td>"+esc(l.name)+"</td>"+
+      return"<tr><td>"+esc(l.name)+"</td>"+
         '<td class="n" style="width:80px"><input type="number" min="0" step="'+(l.unit==="kg"?"0.1":"1")+'" value="'+l.qty+'" data-i="'+i+'" class="cq" aria-label="Quantity"></td>'+
         '<td class="n">'+money(l.price)+"/"+l.unit+"</td>"+
         '<td class="n">'+money(l.price*l.qty)+"</td>"+
@@ -284,13 +305,13 @@ td input{padding:4px 6px}
     $("tTotal").textContent=money(c.total);
     var rv=$("recv").value===""?null:num($("recv").value);
     var lbl=$("payLbl"),val=$("payVal");
-    if(rv===null){lbl.textContent="Balance due";val.textContent=money(c.total);val.className=c.total>0?"bad":"";}
-    else if(rv>=c.total){lbl.textContent="Change";val.textContent=money(rv-c.total);val.className="ok";}
-    else{lbl.textContent="Balance due";val.textContent=money(c.total-rv);val.className="bad";}
+    if(rv===null){lbl.textContent="Balance due";val.textContent=money(c.total);val.className=c.total>0?"bad":""}
+    else if(rv>=c.total){lbl.textContent="Change";val.textContent=money(rv-c.total);val.className="ok"}
+    else{lbl.textContent="Balance due";val.textContent=money(c.total-rv);val.className="bad"}
   }
   $("addBtn").addEventListener("click",function(){
     var p=curSvc(),q=num($("qty").value);
-    if(!p){return}
+    if(!p)return;
     if(!q){$("msg").textContent="Enter a quantity greater than 0.";return}
     $("msg").textContent="";
     var ex=cart.filter(function(l){return l.id===p.id})[0];
@@ -304,39 +325,38 @@ td input{padding:4px 6px}
       totals();
     }
   });
-  $("cart").addEventListener("click",function(e){
-    var i=e.target.dataset.rm;
-    if(i!==undefined){cart.splice(+i,1);renderCart()}
-  });
+  $("cart").addEventListener("click",function(e){var i=e.target.dataset.rm;if(i!==undefined){cart.splice(+i,1);renderCart()}});
   ["disc","discType","fee","recv"].forEach(function(id){$(id).addEventListener("input",totals)});
-
   function clearOrder(){
     cart=[];$("cName").value="";$("cPhone").value="";$("disc").value="0";$("fee").value="0";$("recv").value="";$("discType").value="amt";
     renderCart();
   }
   $("clearBtn").addEventListener("click",function(){clearOrder();$("msg").textContent=""});
 
-  /* save order */
-  $("saveBtn").addEventListener("click",function(){
+  $("saveBtn").addEventListener("click",async function(){
     var items=cart.filter(function(l){return l.qty>0});
     if(!items.length){$("msg").textContent="Add at least one service.";return}
-    var c=calc();
-    var rv=$("recv").value===""?0:num($("recv").value);
-    var o={
-      no:S.counter++,date:today(),time:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}),
-      name:$("cName").value.trim()||"Walk-in",phone:$("cPhone").value.trim(),
-      lines:items.map(function(l){return{name:l.name,unit:l.unit,price:l.price,qty:l.qty}}),
-      sub:c.sub,disc:c.disc,fee:c.fee,total:c.total,
-      paid:r2(Math.min(rv,c.total)),given:rv,status:"Received"
-    };
-    S.orders.unshift(o);save();
-    showReceipt(o);
-    clearOrder();$("msg").textContent="Order #"+pad(o.no)+" saved.";
+    if(!me||!CAN.write)return;
+    var c=calc(),rv=$("recv").value===""?0:num($("recv").value);
+    $("saveBtn").disabled=true;$("msg").textContent="Saving…";
+    try{
+      var r=await sb.from("orders").insert({
+        order_date:today(),order_time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),
+        name:$("cName").value.trim()||"Walk-in",phone:$("cPhone").value.trim(),
+        lines:items.map(function(l){return{name:l.name,unit:l.unit,price:l.price,qty:l.qty}}),
+        sub:c.sub,disc:c.disc,fee:c.fee,total:c.total,paid:r2(Math.min(rv,c.total)),given:rv,status:"Received"
+      }).select().single();
+      if(r.error)throw r.error;
+      var o=norm(r.data);
+      showReceipt(o);clearOrder();$("msg").textContent="Order #"+pad(o.no)+" saved.";
+      loadOrders();
+    }catch(e){$("msg").textContent=errMsg(e)}
+    finally{applyPerms()}
   });
 
   /* receipt */
   function showReceipt(o){
-    var h='<div style="text-align:center"><b>'+esc(S.shop)+"</b><br>Order #"+pad(o.no)+"<br>"+esc(o.date)+" "+esc(o.time||"")+"</div><hr>";
+    var h='<div style="text-align:center"><b>'+esc(cfg.shop)+"</b><br>Order #"+pad(o.no)+"<br>"+esc(o.date)+" "+esc(o.time||"")+"</div><hr>";
     h+="Customer: "+esc(o.name)+(o.phone?"<br>Phone: "+esc(o.phone):"")+"<hr>";
     o.lines.forEach(function(l){
       h+="<div>"+esc(l.name)+'</div><div class="l"><span>&nbsp;&nbsp;'+l.qty+" "+l.unit+" x "+money(l.price)+"</span><span>"+money(l.price*l.qty)+"</span></div>";
@@ -365,102 +385,201 @@ td input{padding:4px 6px}
     if(o.paid>0)return{t:"Partial, "+money(bal)+" due",c:"bad",bal:bal};
     return{t:"Unpaid, "+money(bal)+" due",c:"bad",bal:bal};
   }
+  function findOrder(no){return orders.filter(function(o){return o.no===+no})[0]}
   function renderOrders(){
+    var act=document.activeElement;
+    if(act&&act.dataset&&act.dataset.pay)return;
     var q=$("search").value.trim().toLowerCase(),f=$("stFilter").value;
-    var list=S.orders.filter(function(o){
+    var list=orders.filter(function(o){
       if(f&&o.status!==f)return false;
       if(!q)return true;
       return o.name.toLowerCase().indexOf(q)>-1||(o.phone||"").toLowerCase().indexOf(q)>-1||pad(o.no).indexOf(q.replace("#",""))>-1;
     });
     $("noOrders").style.display=list.length?"none":"block";
+    var dis=CAN.write?"":" disabled";
     $("orderRows").innerHTML=list.map(function(o){
       var p=payInfo(o);
       var pay='<span class="'+p.c+'">'+esc(p.t)+"</span>";
-      if(p.bal>0)pay+='<div class="row" style="margin-top:4px;gap:4px"><input type="number" min="0" step="any" placeholder="Amount" data-pay="'+o.no+'" value="'+p.bal+'" style="padding:3px 6px"><button class="btn sm s" data-collect="'+o.no+'" type="button">Collect</button></div>';
-      var sel='<select data-st="'+o.no+'" aria-label="Status">'+STATUSES.map(function(s){return"<option"+(s===o.status?" selected":"")+">"+s+"</option>"}).join("")+"</select>";
+      if(p.bal>0&&CAN.write)pay+='<div class="row" style="margin-top:4px;gap:4px"><input type="number" min="0" step="any" placeholder="Amount" data-pay="'+o.no+'" value="'+p.bal+'" style="padding:3px 6px"><button class="btn sm s" data-collect="'+o.no+'" type="button">Collect</button></div>';
+      var sel='<select data-st="'+o.no+'" aria-label="Status"'+dis+">"+STATUSES.map(function(s){return"<option"+(s===o.status?" selected":"")+">"+s+"</option>"}).join("")+"</select>";
       return"<tr><td>#"+pad(o.no)+'<div class="muted" style="font-size:12px">'+esc(o.date)+"</div></td>"+
         "<td>"+esc(o.name)+(o.phone?'<div class="muted" style="font-size:12px">'+esc(o.phone)+"</div>":"")+"</td>"+
         '<td class="n">'+money(o.total)+"</td><td>"+pay+"</td><td>"+sel+"</td>"+
-        '<td style="white-space:nowrap"><button class="btn alt sm" data-rc="'+o.no+'" type="button">Receipt</button> <button class="btn alt sm" data-del="'+o.no+'" type="button">Delete</button></td></tr>';
+        '<td style="white-space:nowrap"><button class="btn alt sm" data-rc="'+o.no+'" type="button">Receipt</button>'+
+        (CAN.admin?' <button class="btn alt sm" data-del="'+o.no+'" type="button">Delete</button>':"")+"</td></tr>";
     }).join("");
   }
-  function findOrder(no){return S.orders.filter(function(o){return o.no===+no})[0]}
   $("search").addEventListener("input",renderOrders);
   $("stFilter").addEventListener("change",renderOrders);
-  $("orderRows").addEventListener("change",function(e){
-    if(e.target.dataset.st){var o=findOrder(e.target.dataset.st);o.status=e.target.value;save()}
+  $("orderRows").addEventListener("change",async function(e){
+    if(!e.target.dataset.st)return;
+    var r=await sb.from("orders").update({status:e.target.value}).eq("no",+e.target.dataset.st);
+    if(r.error){toast(errMsg(r.error));renderOrders()}
   });
-  $("orderRows").addEventListener("click",function(e){
+  $("orderRows").addEventListener("click",async function(e){
     var b=e.target,d=b.dataset;
-    if(d.rc){showReceipt(findOrder(d.rc))}
+    if(d.rc){var o=findOrder(d.rc);if(o)showReceipt(o)}
     else if(d.collect){
-      var o=findOrder(d.collect);
-      var inp=document.querySelector('input[data-pay="'+d.collect+'"]');
-      var amt=num(inp.value);if(!amt)return;
-      o.paid=r2(Math.min(o.total,o.paid+amt));save();renderOrders();
+      var ord=findOrder(d.collect);if(!ord)return;
+      var amt=num(document.querySelector('input[data-pay="'+d.collect+'"]').value);if(!amt)return;
+      b.disabled=true;
+      var r=await sb.from("orders").update({paid:r2(Math.min(ord.total,ord.paid+amt))}).eq("no",ord.no);
+      if(r.error){toast(errMsg(r.error));b.disabled=false}else loadOrders();
     }
     else if(d.del){
-      if(b.dataset.armed){S.orders=S.orders.filter(function(o){return o.no!==+d.del});save();renderOrders()}
-      else{b.dataset.armed="1";b.textContent="Sure?";setTimeout(function(){if(b.isConnected){delete b.dataset.armed;b.textContent="Delete"}},3000)}
+      if(b.dataset.armed){
+        var x=await sb.from("orders").delete().eq("no",+d.del).select();
+        if(x.error||!x.data||!x.data.length)toast(x.error?errMsg(x.error):"You don’t have permission to delete orders.");
+        else loadOrders();
+      }else{b.dataset.armed="1";b.textContent="Sure?";setTimeout(function(){if(b.isConnected){delete b.dataset.armed;b.textContent="Delete"}},3000)}
     }
   });
 
-  /* prices */
+  /* prices: saved to the settings row after a short pause */
+  var cfgTimer=null,cfgBusy=false,cfgDirty=false;
+  function queueCfg(){if(!me||!CAN.admin)return;cfgDirty=true;clearTimeout(cfgTimer);cfgTimer=setTimeout(flushCfg,700)}
+  async function flushCfg(){
+    if(cfgBusy){cfgTimer=setTimeout(flushCfg,400);return}
+    if(!cfgDirty)return;
+    cfgBusy=true;cfgDirty=false;
+    try{
+      var r=await sb.from("settings").update({shop:cfg.shop,cur:cfg.cur,next_pid:cfg.nextPid,prices:cfg.prices}).eq("id",1).select();
+      if(r.error)throw r.error;
+      if(!r.data||!r.data.length)throw{message:"Only admins can change prices."};
+    }catch(e){toast(errMsg(e))}
+    finally{cfgBusy=false}
+  }
   function renderPrices(){
-    $("shopName").value=S.shop;$("cur").value=S.cur;
-    $("priceRows").innerHTML=S.prices.map(function(p){
+    $("shopName").value=cfg.shop;$("cur").value=cfg.cur;
+    $("priceRows").innerHTML=cfg.prices.map(function(p){
       return'<tr><td><input value="'+esc(p.name)+'" data-pn="'+p.id+'" aria-label="Service name"></td>'+
         '<td style="width:90px"><select data-pu="'+p.id+'" aria-label="Unit">'+["kg","pc","load"].map(function(u){return"<option"+(u===p.unit?" selected":"")+">"+u+"</option>"}).join("")+"</select></td>"+
         '<td class="n" style="width:110px"><input type="number" min="0" step="any" value="'+p.price+'" data-pp="'+p.id+'" aria-label="Price"></td>'+
         '<td style="width:80px"><button class="btn alt sm" data-pr="'+p.id+'" type="button">Remove</button></td></tr>';
     }).join("");
+    applyPerms();
   }
-  function findP(id){return S.prices.filter(function(p){return p.id===+id})[0]}
-  $("shopName").addEventListener("input",function(){S.shop=this.value;$("shopTitle").textContent=S.shop||"Laundry POS";save()});
-  $("cur").addEventListener("input",function(){S.cur=this.value;save();fillSvc();renderCart()});
+  function findP(id){return cfg.prices.filter(function(p){return p.id===+id})[0]}
+  $("shopName").addEventListener("input",function(){cfg.shop=this.value;$("shopTitle").textContent=cfg.shop||"Laundry POS";queueCfg()});
+  $("cur").addEventListener("input",function(){cfg.cur=this.value;fillSvc();renderCart();queueCfg()});
   $("priceRows").addEventListener("input",function(e){
     var d=e.target.dataset,p;
     if(d.pn){p=findP(d.pn);p.name=e.target.value}
     else if(d.pp){p=findP(d.pp);p.price=num(e.target.value)}
     else return;
-    save();fillSvc();
+    fillSvc();queueCfg();
   });
-  $("priceRows").addEventListener("change",function(e){
-    if(e.target.dataset.pu){findP(e.target.dataset.pu).unit=e.target.value;save();fillSvc()}
-  });
+  $("priceRows").addEventListener("change",function(e){if(e.target.dataset.pu){findP(e.target.dataset.pu).unit=e.target.value;fillSvc();queueCfg()}});
   $("priceRows").addEventListener("click",function(e){
     var id=e.target.dataset.pr;
-    if(id){S.prices=S.prices.filter(function(p){return p.id!==+id});save();renderPrices();fillSvc()}
+    if(id){cfg.prices=cfg.prices.filter(function(p){return p.id!==+id});renderPrices();fillSvc();queueCfg()}
   });
   $("npAdd").addEventListener("click",function(){
     var n=$("npName").value.trim();if(!n)return;
-    S.prices.push({id:S.nextPid++,name:n,unit:$("npUnit").value,price:num($("npPrice").value)});
-    $("npName").value="";$("npPrice").value="";save();renderPrices();fillSvc();
+    cfg.prices.push({id:cfg.nextPid++,name:n,unit:$("npUnit").value,price:num($("npPrice").value)});
+    $("npName").value="";$("npPrice").value="";renderPrices();fillSvc();queueCfg();
   });
+  function applyCfg(){
+    $("shopTitle").textContent=cfg.shop||"Laundry POS";
+    fillSvc();renderCart();
+    if(tab==="prices"&&!(document.activeElement||document.body).closest("#prices"))renderPrices();
+  }
 
   /* sales */
+  async function loadSales(){
+    var d=$("sDate").value;if(!d){d=today();$("sDate").value=d}
+    if(!me){salesList=[];renderSales();return}
+    var r=await sb.from("orders").select("*").eq("order_date",d).order("no");
+    if(r.error){toast(errMsg(r.error));return}
+    salesList=r.data.map(norm);renderSales();
+  }
   function renderSales(){
-    if(!$("sDate").value)$("sDate").value=today();
-    var d=$("sDate").value;
-    var list=S.orders.filter(function(o){return o.date===d});
-    var tot=0,col=0;list.forEach(function(o){tot+=o.total;col+=o.paid});
+    var tot=0,col=0;salesList.forEach(function(o){tot+=o.total;col+=o.paid});
     $("sCards").innerHTML=
-      '<div class="card">Orders<b>'+list.length+"</b></div>"+
+      '<div class="card">Orders<b>'+salesList.length+"</b></div>"+
       '<div class="card">Total sales<b>'+money(tot)+"</b></div>"+
       '<div class="card">Collected<b>'+money(col)+"</b></div>"+
       '<div class="card">Unpaid<b class="'+(tot-col>0?"bad":"")+'">'+money(tot-col)+"</b></div>";
-    $("sRows").innerHTML=list.length?list.map(function(o){
+    $("sRows").innerHTML=salesList.length?salesList.map(function(o){
       return"<tr><td>#"+pad(o.no)+"</td><td>"+esc(o.name)+'</td><td class="n">'+money(o.total)+'</td><td class="n">'+money(o.paid)+"</td></tr>";
     }).join(""):'<tr><td colspan="4" class="muted">No orders on this date.</td></tr>';
   }
-  $("sDate").addEventListener("input",renderSales);
+  $("sDate").addEventListener("input",loadSales);
 
-  /* init */
-  $("shopTitle").textContent=S.shop||"Laundry POS";
-  fillSvc();renderCart();
-  if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol)){
-    window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});
+  /* data loading and live updates */
+  async function loadCfg(){
+    if(cfgDirty||cfgBusy)return;
+    var r=await sb.from("settings").select("*").eq("id",1).maybeSingle();
+    if(r.error){toast(errMsg(r.error));return}
+    var d=r.data;
+    cfg=d?{shop:d.shop,cur:d.cur,nextPid:d.next_pid,prices:d.prices||clone(DEF.prices)}:clone(DEF);
+    applyCfg();
   }
+  async function loadOrders(){
+    if(!me)return;
+    var r=await sb.from("orders").select("*").order("no",{ascending:false}).limit(300);
+    if(r.error){toast(errMsg(r.error));return}
+    orders=r.data.map(norm);
+    if(tab==="orders")renderOrders();
+    if(tab==="sales")loadSales();
+  }
+  function subscribe(){
+    if(chan)sb.removeChannel(chan);
+    chan=sb.channel("pos")
+      .on("postgres_changes",{event:"*",schema:"public",table:"orders"},function(){clearTimeout(tO);tO=setTimeout(loadOrders,300)})
+      .on("postgres_changes",{event:"*",schema:"public",table:"settings"},function(){clearTimeout(tC);tC=setTimeout(loadCfg,300)})
+      .subscribe(function(st){
+        if(st==="SUBSCRIBED")setConn("Connected. Orders are shared live with every signed-in device.");
+        else if(st==="CHANNEL_ERROR"||st==="TIMED_OUT")setConn("Live updates interrupted. The list still refreshes every 30 seconds.",true);
+      });
+  }
+
+  /* sign in / out */
+  function showLogin(msg){$("login").style.display="block";$("acct").style.display="none";$("lMsg").textContent=msg||""}
+  function hideLogin(){$("login").style.display="none";$("acct").style.display="flex"}
+  async function start(user){
+    me=user;hideLogin();setConn("Loading…");
+    var p=await sb.from("profiles").select("role").eq("id",user.id).maybeSingle();
+    if(p.error||!p.data){
+      CAN={write:false,admin:false};applyPerms();
+      setConn("This account isn’t set up for the POS. Ask the owner to add it.",true);return;
+    }
+    CAN.write=true;CAN.admin=p.data.role==="admin";
+    $("who").textContent=user.email+(CAN.admin?" (admin)":"");
+    applyPerms();
+    await loadCfg();await loadOrders();
+    subscribe();
+    clearInterval(poll);poll=setInterval(function(){if(!document.hidden)loadOrders()},30000);
+  }
+  function stop(){
+    me=null;CAN={write:false,admin:false};orders=[];clearInterval(poll);
+    if(chan){sb.removeChannel(chan);chan=null}
+    applyPerms();renderOrders();showLogin();
+  }
+  $("outBtn").addEventListener("click",function(){sb.auth.signOut()});
+  $("lForm").addEventListener("submit",async function(ev){
+    ev.preventDefault();$("lBtn").disabled=true;$("lMsg").textContent="";
+    var r=await sb.auth.signInWithPassword({email:$("lEmail").value.trim(),password:$("lPass").value});
+    $("lBtn").disabled=false;
+    if(r.error)$("lMsg").textContent=/invalid login/i.test(r.error.message)?"Wrong email or password.":"Couldn’t sign in: "+r.error.message;
+    else $("lPass").value="";
+  });
+
+  /* start */
+  fillSvc();renderCart();applyPerms();
+  if(!window.supabase||!CFG.SUPABASE_URL||/YOUR-/.test(CFG.SUPABASE_URL+CFG.SUPABASE_ANON_KEY)){
+    $("lForm").style.display="none";
+    showLogin("Setup needed: open config.js and paste your Supabase Project URL and anon key. See README.md.");
+    $("acct").style.display="none";
+    return;
+  }
+  sb=window.supabase.createClient(CFG.SUPABASE_URL,CFG.SUPABASE_ANON_KEY);
+  sb.auth.onAuthStateChange(function(ev,session){
+    setTimeout(function(){
+      if(session&&session.user){if(!me||me.id!==session.user.id)start(session.user)}
+      else if(me||ev==="INITIAL_SESSION")stop();
+    },0);
+  });
 })();
 </script>
 </body>
