@@ -7,73 +7,167 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<meta name="theme-color" content="#1f5fbf">
+<meta name="theme-color" content="#0f1b3d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Laundry POS">
 <style>
-:root{--bg:#f4f4f2;--surface:#ffffff;--text:#1d1d1d;--muted:#666666;--line:#cfcfca;--accent:#1f5fbf;--accent-text:#ffffff;--bad:#b3261e;--ok:#1b7a3a;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171717;--surface:#222222;--text:#ececec;--muted:#a0a0a0;--line:#3d3d3d;--accent:#6ea2f0;--accent-text:#0d0d0d;--bad:#ff8a80;--ok:#6fd08c;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#171717;--surface:#222222;--text:#ececec;--muted:#a0a0a0;--line:#3d3d3d;--accent:#6ea2f0;--accent-text:#0d0d0d;--bad:#ff8a80;--ok:#6fd08c;color-scheme:dark}
+:root{--bg:#f1f5fb;--surface:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--field:#f8fafc;--soft:#eef4ff;
+  --accent:#2563eb;--g1:#2563eb;--g2:#0891b2;--accent-text:#fff;--bad:#dc2626;--ok:#059669;
+  --shadow:0 1px 2px rgba(15,23,42,.04),0 10px 28px -10px rgba(15,23,42,.14);--r:18px;
+  color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0a1020;--surface:#121a2e;--text:#e8eefc;--muted:#8fa0c0;--line:#22304d;--field:#0e1627;--soft:#16213a;
+  --accent:#7aa2ff;--g1:#3563e9;--g2:#0e8fb0;--bad:#ff8f85;--ok:#4ade80;--shadow:0 10px 28px -12px rgba(0,0,0,.6);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0a1020;--surface:#121a2e;--text:#e8eefc;--muted:#8fa0c0;--line:#22304d;--field:#0e1627;--soft:#16213a;
+  --accent:#7aa2ff;--g1:#3563e9;--g2:#0e8fb0;--bad:#ff8f85;--ok:#4ade80;--shadow:0 10px 28px -12px rgba(0,0,0,.6);color-scheme:dark}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
-header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--line)}
-header h1{font-size:17px;margin:0}
-nav{display:flex;gap:4px;flex-wrap:wrap}
-nav button{background:none;border:1px solid var(--line);color:var(--text);padding:7px 12px;border-radius:4px;cursor:pointer;font:inherit}
-nav button.on{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
-main{max-width:1000px;margin:0 auto;padding:14px}
+body{margin:0;padding-left:248px;background:var(--bg);color:var(--text);font:14.5px/1.5 "Inter","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(620px 420px at 88% -6%,rgba(37,99,235,.13),transparent 60%),radial-gradient(520px 420px at 14% 104%,rgba(8,145,178,.12),transparent 60%)}
+td,.card b,.totals span{font-variant-numeric:tabular-nums}
+
+/* sidebar */
+header{position:fixed;inset:0 auto 0 0;width:248px;z-index:10;display:flex;flex-direction:column;gap:6px;padding:22px 14px 18px;
+  background:linear-gradient(180deg,#0f1b3d 0%,#0b1330 100%);color:#fff}
+.brand{display:flex;align-items:center;gap:12px;padding:0 8px 22px}
+.logo{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;flex:none;
+  background:linear-gradient(135deg,#3b82f6,#22d3ee);box-shadow:0 8px 20px -6px rgba(34,211,238,.55)}
+.logo svg{width:22px;height:22px;fill:#fff}
+header h1{font-size:16px;font-weight:700;margin:0;letter-spacing:.2px;line-height:1.2;overflow-wrap:anywhere}
+.brand small{display:block;font-size:11.5px;color:#8fa3cf;font-weight:500}
+nav{display:flex;flex-direction:column;gap:4px}
+nav button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;color:#aebbdc;
+  padding:11px 14px;border-radius:12px;cursor:pointer;font:inherit;font-weight:500;transition:background .15s,color .15s}
+nav button:hover{background:rgba(255,255,255,.07);color:#fff}
+nav button.on{color:#fff;background:linear-gradient(135deg,rgba(59,130,246,.95),rgba(8,145,178,.95));box-shadow:0 8px 20px -8px rgba(34,211,238,.6)}
+nav svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#acct{margin-top:auto;flex-direction:column;align-items:stretch!important;gap:10px!important;padding:14px;border-radius:14px;background:rgba(255,255,255,.06)}
+#acct .muted{color:#9fb0d6;word-break:break-all}
+#acct .btn{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.28);width:100%}
+#acct .btn:hover{background:rgba(255,255,255,.1)}
+
+#conn{margin:0 auto;max-width:1120px;padding:14px 32px 0;font-size:12px}
+#conn::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor;margin-right:8px;vertical-align:1px}
+main{max-width:1120px;margin:0 auto;padding:16px 32px 56px}
 section{display:none}
-section.on{display:block}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media (max-width:720px){.grid{grid-template-columns:1fr}}
-.box{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:12px;margin-bottom:14px}
-.box h2{font-size:15px;margin:0 0 10px}
-label{display:block;font-size:13px;color:var(--muted);margin:8px 0 3px}
-input,select,button.btn{font:inherit;color:var(--text);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:7px 8px;width:100%}
-input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.row{display:flex;gap:8px;align-items:flex-end}
+section.on{display:block;animation:rise .35s ease both}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){section.on{animation:none}*{transition:none!important}}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+
+/* cards */
+.box{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:20px;margin-bottom:20px}
+.box h2{font-size:14px;font-weight:700;margin:0 0 14px;display:flex;align-items:center;gap:9px}
+.box h2::before{content:"";width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--g1),var(--g2))}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:12px 0 5px}
+input,select,button.btn{font:inherit;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-height:42px;width:100%}
+input:hover,select:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:0;border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 22%,transparent)}
+.row{display:flex;gap:10px;align-items:flex-end}
 .row>*{flex:1}
 .row>.s{flex:0 0 auto;width:auto}
-button.btn{cursor:pointer;width:auto;background:var(--accent);color:var(--accent-text);border-color:var(--accent);font-weight:600}
-button.btn.alt{background:var(--surface);color:var(--text);border-color:var(--line);font-weight:400}
-button.btn.sm{padding:4px 8px;font-size:13px}
-button.btn.full{width:100%;padding:11px}
-table{width:100%;border-collapse:collapse}
-th,td{text-align:left;padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:middle}
-th{font-size:13px;color:var(--muted);font-weight:600}
+button.btn{cursor:pointer;width:auto;border:0;color:var(--accent-text);font-weight:600;
+  background:linear-gradient(135deg,var(--g1),var(--g2));box-shadow:0 8px 18px -8px color-mix(in srgb,var(--g1) 80%,transparent);transition:transform .12s,filter .15s}
+button.btn:hover:not(:disabled){filter:brightness(1.07)}
+button.btn:active:not(:disabled){transform:translateY(1px)}
+button.btn.alt{background:var(--surface);color:var(--text);border:1px solid var(--line);font-weight:500;box-shadow:none}
+button.btn.alt:hover:not(:disabled){background:var(--soft);filter:none}
+button.btn.sm{padding:5px 11px;min-height:32px;font-size:12.5px;border-radius:10px}
+button.btn.full{width:100%;padding:14px;font-size:15px;border-radius:14px}
+button:disabled,input:disabled,select:disabled{opacity:.5;cursor:not-allowed}
+select{appearance:none;-webkit-appearance:none;padding-right:34px;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center}
+
+/* tables */
+table{width:100%;border-collapse:separate;border-spacing:0}
+th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
 td.n,th.n{text-align:right}
-td input{padding:4px 6px}
-.totals div{display:flex;justify-content:space-between;padding:3px 0}
-.totals .big{font-size:20px;font-weight:700;border-top:1px solid var(--line);margin-top:4px;padding-top:8px}
+tbody tr:hover td{background:var(--soft)}
+tbody tr:last-child td{border-bottom:0}
+td input,td select{min-height:34px;padding:5px 9px;border-radius:10px}
+#orderRows td:first-child{font-weight:700}
+#orderRows select{border-radius:999px;font-weight:600;font-size:12.5px;padding-left:14px;min-width:112px}
+#orderRows td>span.ok,#orderRows td>span.bad{display:inline-block;padding:3px 11px;border-radius:999px;font-size:12px;font-weight:600;
+  background:color-mix(in srgb,currentColor 13%,transparent)}
+
+/* totals */
+.totals div{display:flex;justify-content:space-between;padding:5px 0;color:var(--muted)}
+.totals div span:last-child{color:var(--text);font-weight:600}
+.totals .big{margin-top:10px;padding:15px 18px;border-radius:14px;font-size:21px;font-weight:700;color:#fff;
+  background:linear-gradient(135deg,var(--g1),var(--g2));box-shadow:0 12px 24px -12px color-mix(in srgb,var(--g1) 90%,transparent)}
+.totals .big span,.totals .big span:last-child{color:#fff;font-weight:700}
 .bad{color:var(--bad)}.ok{color:var(--ok)}.muted{color:var(--muted)}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:10px}
-.card b{display:block;font-size:20px}
+
+/* sales cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin-bottom:20px}
+.card{position:relative;overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);
+  padding:18px;color:var(--muted);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em}
+.card::after{content:"";position:absolute;right:-26px;top:-26px;width:90px;height:90px;border-radius:50%;opacity:.16;background:linear-gradient(135deg,var(--g1),var(--g2))}
+.card:nth-child(2)::after{background:linear-gradient(135deg,#8b5cf6,#3b82f6)}
+.card:nth-child(3)::after{background:linear-gradient(135deg,#10b981,#06b6d4)}
+.card:nth-child(4)::after{background:linear-gradient(135deg,#f97316,#ef4444)}
+.card b{display:block;margin-top:8px;font-size:26px;font-weight:800;color:var(--text);text-transform:none;letter-spacing:0}
+.card b.bad{color:var(--bad)}
 .scroll{overflow-x:auto}
-#rcptWrap{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:20;overflow:auto;padding:16px}
+
+/* sign in */
+#login{background:linear-gradient(150deg,#0b1330 0%,#13296b 55%,#0e7490 120%)!important;overflow:hidden}
+#login::before,#login::after{content:"";position:absolute;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.22),rgba(255,255,255,.03));animation:float 9s ease-in-out infinite}
+#login::before{width:320px;height:320px;left:-80px;bottom:-90px}
+#login::after{width:200px;height:200px;right:6%;top:8%;animation-delay:-4s}
+@keyframes float{50%{transform:translateY(-22px)}}
+@media (prefers-reduced-motion:reduce){#login::before,#login::after{animation:none}}
+#login .box{position:relative;z-index:1;border-radius:24px;padding:30px;box-shadow:0 30px 60px -20px rgba(0,0,0,.55)}
+#login .logo{margin:0 auto 14px}
+#login .box h2{justify-content:center;font-size:18px}
+#login .box h2::before{display:none}
+#toast{border-radius:999px;box-shadow:0 12px 28px -8px rgba(0,0,0,.4);font-size:13px;padding:10px 18px!important}
+
+/* receipt (thermal look, unchanged) */
+#rcptWrap{display:none;position:fixed;inset:0;background:rgba(8,12,24,.6);backdrop-filter:blur(4px);z-index:50;overflow:auto;padding:20px}
 #rcptWrap.on{display:block}
-#rcpt{background:#fff;color:#000;max-width:320px;margin:0 auto;padding:14px;font:13px/1.35 "Courier New",monospace}
+#rcpt{background:#fff;color:#000;max-width:320px;margin:0 auto;padding:16px;border-radius:6px;box-shadow:0 20px 50px rgba(0,0,0,.4);font:13px/1.35 "Courier New",monospace}
 #rcpt .l{display:flex;justify-content:space-between;gap:8px}
 #rcpt hr{border:0;border-top:1px dashed #000;margin:6px 0}
-.rbtns{max-width:320px;margin:10px auto 0;display:flex;gap:8px}
+.rbtns{max-width:320px;margin:12px auto 0;display:flex;gap:8px}
 .rbtns button{flex:1}
-@media print{body>*:not(#rcptWrap){display:none!important}#rcptWrap{position:static;background:none;padding:0;display:block!important}.rbtns{display:none}#rcpt{max-width:none;margin:0}}
+@media print{body{padding:0}body>*:not(#rcptWrap){display:none!important}#rcptWrap{position:static;background:none;backdrop-filter:none;padding:0;display:block!important}.rbtns{display:none}#rcpt{max-width:none;margin:0;box-shadow:none;border-radius:0}}
+
+/* tablet and phone: top bar + bottom tabs */
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+@media (max-width:860px){
+  body{padding-left:0;padding-bottom:84px}
+  header{position:sticky;top:0;inset:auto;width:auto;flex-direction:row;align-items:center;justify-content:space-between;padding:10px 16px}
+  .brand{padding:0}.brand small{display:none}.logo{width:34px;height:34px;border-radius:11px}
+  nav{position:fixed;left:0;right:0;bottom:0;z-index:20;flex-direction:row;gap:2px;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));
+    background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(14px);border-top:1px solid var(--line)}
+  nav button{flex:1;flex-direction:column;gap:3px;padding:7px 4px;font-size:11.5px;text-align:center;color:var(--muted);border-radius:12px}
+  nav button:hover{background:var(--soft);color:var(--text)}
+  nav button.on{color:#fff}
+  #acct{margin:0;flex-direction:row;align-items:center!important;padding:0;background:none}
+  #acct .muted{display:none}#acct .btn{width:auto}
+  #conn{padding:12px 16px 0}main{padding:12px 16px 24px}.box{padding:16px}
+}
 </style>
 </head>
 <body>
 <header>
-  <h1 id="shopTitle">Laundry POS</h1>
+  <div class="brand">
+    <span class="logo"><svg viewBox="0 0 24 24"><path d="M12 2.5s6.5 6.6 6.5 11.2A6.5 6.5 0 0 1 5.5 13.7C5.5 9.1 12 2.5 12 2.5z"/></svg></span>
+    <div><h1 id="shopTitle">Laundry POS</h1><small>Point of sale</small></div>
+  </div>
   <nav id="nav">
-    <button data-t="new" class="on">New order</button>
-    <button data-t="orders">Orders</button>
-    <button data-t="prices">Prices</button>
-    <button data-t="sales">Sales</button>
+    <button data-t="new" class="on"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><span>New order</span></button>
+    <button data-t="orders"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg><span>Orders</span></button>
+    <button data-t="prices"><svg viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8L3 12z"/><circle cx="7.5" cy="8.5" r="1"/></svg><span>Prices</span></button>
+    <button data-t="sales"><svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V4M19 20v-6"/></svg><span>Sales</span></button>
   </nav>
   <div id="acct" style="display:none;align-items:center;gap:8px"><span id="who" class="muted" style="font-size:13px"></span><button class="btn alt sm" id="outBtn" type="button">Sign out</button></div>
 </header>
-<div id="conn" class="muted" style="padding:6px 14px;font-size:13px;border-bottom:1px solid var(--line)">Connecting…</div>
+<div id="conn" class="muted">Connecting…</div>
 
 <main>
 <!-- NEW ORDER -->
@@ -97,7 +191,7 @@ td input{padding:4px 6px}
         <h2>Adjustments</h2>
         <div class="row">
           <div><label for="disc">Discount</label><input id="disc" type="number" min="0" step="any" value="0"></div>
-          <div style="flex:0 0 90px"><label for="discType">Type</label><select id="discType"><option value="amt">Amount</option><option value="pct">Percent %</option></select></div>
+          <div style="flex:0 0 110px"><label for="discType">Type</label><select id="discType"><option value="amt">Amount</option><option value="pct">Percent %</option></select></div>
         </div>
         <label for="fee">Delivery / rush fee</label><input id="fee" type="number" min="0" step="any" value="0">
       </div>
@@ -137,8 +231,8 @@ td input{padding:4px 6px}
 <section id="orders">
   <div class="box">
     <div class="row">
-      <div><label for="search">Search (name, phone or order no.)</label><input id="search"></div>
-      <div style="flex:0 0 160px"><label for="stFilter">Status</label>
+      <div><label for="search" style="margin-top:0">Search (name, phone or order no.)</label><input id="search"></div>
+      <div style="flex:0 0 170px"><label for="stFilter" style="margin-top:0">Status</label>
         <select id="stFilter"><option value="">All</option><option>Received</option><option>Washing</option><option>Ready</option><option>Claimed</option></select></div>
     </div>
   </div>
@@ -157,8 +251,8 @@ td input{padding:4px 6px}
   <div class="box">
     <h2>Shop settings</h2>
     <div class="row">
-      <div><label for="shopName">Shop name</label><input id="shopName"></div>
-      <div style="flex:0 0 100px"><label for="cur">Currency</label><input id="cur" maxlength="4"></div>
+      <div><label for="shopName" style="margin-top:0">Shop name</label><input id="shopName"></div>
+      <div style="flex:0 0 100px"><label for="cur" style="margin-top:0">Currency</label><input id="cur" maxlength="4"></div>
     </div>
   </div>
   <div class="box scroll">
@@ -167,10 +261,10 @@ td input{padding:4px 6px}
       <thead><tr><th>Service</th><th>Per</th><th class="n">Price</th><th></th></tr></thead>
       <tbody id="priceRows"></tbody>
     </table>
-    <h2 style="margin-top:14px">Add service</h2>
+    <h2 style="margin-top:22px">Add service</h2>
     <div class="row">
       <div><label for="npName">Name</label><input id="npName"></div>
-      <div style="flex:0 0 90px"><label for="npUnit">Per</label><select id="npUnit"><option value="kg">kg</option><option value="pc">pc</option><option value="load">load</option></select></div>
+      <div style="flex:0 0 100px"><label for="npUnit">Per</label><select id="npUnit"><option value="kg">kg</option><option value="pc">pc</option><option value="load">load</option></select></div>
       <div style="flex:0 0 110px"><label for="npPrice">Price</label><input id="npPrice" type="number" min="0" step="any"></div>
       <button class="btn s" id="npAdd" type="button">Add</button>
     </div>
@@ -179,7 +273,7 @@ td input{padding:4px 6px}
 
 <!-- SALES -->
 <section id="sales">
-  <div class="box" style="max-width:260px">
+  <div class="box" style="max-width:280px">
     <label for="sDate" style="margin-top:0">Date</label><input id="sDate" type="date">
   </div>
   <div class="cards" id="sCards"></div>
@@ -195,17 +289,18 @@ td input{padding:4px 6px}
 </main>
 
 <div id="login" style="display:block;position:fixed;inset:0;background:var(--bg);z-index:40;overflow:auto;padding:16px">
-  <div class="box" style="max-width:340px;margin:8vh auto 0">
+  <div class="box" style="max-width:360px;margin:8vh auto 0">
+    <span class="logo"><svg viewBox="0 0 24 24"><path d="M12 2.5s6.5 6.6 6.5 11.2A6.5 6.5 0 0 1 5.5 13.7C5.5 9.1 12 2.5 12 2.5z"/></svg></span>
     <h2>Laundry POS sign in</h2>
     <form id="lForm">
       <label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="username" required>
       <label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password" required>
-      <div style="margin-top:12px"><button class="btn full" id="lBtn" type="submit">Sign in</button></div>
+      <div style="margin-top:16px"><button class="btn full" id="lBtn" type="submit">Sign in</button></div>
     </form>
     <p id="lMsg" class="bad"></p>
   </div>
 </div>
-<div id="toast" role="status" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--text);color:var(--bg);padding:9px 14px;border-radius:4px;z-index:30;max-width:90%"></div>
+<div id="toast" role="status" style="display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--text);color:var(--bg);padding:9px 14px;border-radius:4px;z-index:60;max-width:90%"></div>
 <!-- RECEIPT -->
 <div id="rcptWrap">
   <div id="rcpt"></div>
